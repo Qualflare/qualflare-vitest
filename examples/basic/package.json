@@ -1,0 +1,14 @@
+{
+  "name": "qualflare-vitest-basic-example",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Minimal example of using @qualflare/vitest in a real Vitest project.",
+  "type": "module",
+  "devDependencies": {
+    "@qualflare/vitest": "file:../../qualflare-vitest-0.1.0.tgz",
+    "vitest": "^3.2.0"
+  },
+  "scripts": {
+    "test": "vitest run"
+  }
+}

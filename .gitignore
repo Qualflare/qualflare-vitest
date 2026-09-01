@@ -1,0 +1,15 @@
+node_modules/
+dist/
+coverage/
+*.log
+.DS_Store
+
+# npm pack output — the example job and the release smoke test both produce one
+*.tgz
+
+# Artifacts from this repo's own integration-test fixture project
+test/integration/fixtures/**/qualflare-results/
+
+# example project artifacts
+examples/**/node_modules/
+examples/**/qualflare-results/
