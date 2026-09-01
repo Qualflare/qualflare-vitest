@@ -28,17 +28,17 @@ call would have thrown there.
 This is the same shape as the sibling Playwright package, which declares a 1.40 floor while
 `TestCase.tags` only exists from 1.42.
 
-## No video
+## Browser-mode screenshots and traces are not attached
 
-Vitest records none, so there is nothing to attach. The sibling Playwright and Cypress reporters
-copy video files into `outputDir` and reference them by path; this reporter has no equivalent and
-the related options (`maxVideoBytes`) are absent rather than present and inert.
+Vitest's browser mode produces failure screenshots (`browser.screenshotFailures`) and replayable
+Playwright traces (`browser.trace` / `browser.traceView`). Neither is attached today: both reach a
+reporter through `TestCase.artifacts()` / `recordArtifact`, which is 4.x-only and marked
+`@experimental` in Vitest's own type definitions. Reading it would mean a third version branch on
+top of the two above, for an API that may still change shape. Revisit once it stabilises.
 
-## Browser-mode artifacts are not attached
-
-`TestCase.artifacts()` and the `recordArtifact` API are 4.x-only and marked `@experimental` in
-Vitest's own type definitions. Reading them would mean a third version branch on top of the two
-above, for an API that may still change shape. Revisit once it stabilises.
+There is no video to attach — Vitest records none, in browser mode or otherwise. That is a property
+of Vitest rather than a gap in this reporter, which is why it is not listed as a limitation of its
+own.
 
 ## No `timeout` or `aborted` status
 

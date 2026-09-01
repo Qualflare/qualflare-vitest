@@ -128,13 +128,12 @@ wrong value cannot fail at test time — the reporter makes no requests — so t
 
 ## Known limitations
 
-- **No video.** Vitest records none, so there is nothing to attach. (The sibling Playwright and
-  Cypress reporters upload video; this one has no equivalent.)
 - **Native annotations need Vitest 3.2+.** `task.annotate()` and `TestCase.annotations()` arrived in
   3.2, but the peer floor is 3.0. On 3.0/3.1 annotations are simply not read — `qualflare.attachment()`
   works throughout.
-- **Browser-mode artifacts are not attached.** `TestCase.artifacts()` is experimental and 4.x-only;
-  it is deliberately not read until it stabilises.
+- **Browser-mode screenshots and traces are not attached.** They reach a reporter through
+  `TestCase.artifacts()`, which is experimental and 4.x-only, so it is deliberately not read until
+  it stabilises.
 - **`outputDir` is merged blindly** — `qf collect` uploads every report file it finds, with no
   run-identity check, so a directory left over from a previous run is silently merged into the
   current one. Clear it at the start of each run.
