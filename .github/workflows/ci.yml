@@ -79,9 +79,20 @@ jobs:
         # `npm pkg set` then a plain `install` rather than `ci`, because `ci`
         # would reinstall the lockfile's pinned version and silently defeat the
         # whole matrix.
+        #
+        # The lockfile is REMOVED first, on purpose. It describes the tree for
+        # the default dev version, and these legs deliberately install a
+        # different one — Vitest 4 pulls a different Vite major. Mutating
+        # package.json and resolving against a stale lockfile makes npm 10 (what
+        # the runner ships) die inside arborist with "Cannot read properties of
+        # null (reading 'edgesOut')", a message that describes neither the
+        # conflict nor the file involved. npm 11 handles the same input fine,
+        # which is why this reproduced only in CI. Resolving from scratch is
+        # both what the matrix actually wants and immune to the npm version.
         run: |
           npm pkg set devDependencies.vitest="${{ matrix.vitest }}"
           npm pkg set devDependencies.@types/node="${{ matrix.types }}"
+          rm -f package-lock.json
           npm install --no-audit --no-fund
       - run: npm run build
       - name: Confirm the matrix version is the one actually installed
