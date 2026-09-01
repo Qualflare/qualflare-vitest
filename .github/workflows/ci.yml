@@ -51,13 +51,24 @@ jobs:
         #   4.x   — current.
         #
         # Node varies with the leg: Vitest 4 requires Node 20+.
+        #
+        # `types` is pinned per leg because Vitest 4 declares a peerOptional on
+        # @types/node ">=20", while this package's own devDependency is ^18 to
+        # match its `engines: node >=18`. Installing 4.x over the ^18 types is
+        # an ERESOLVE failure — and npm reports it as an arborist crash
+        # ("Cannot read properties of null (reading 'edgesOut')"), which says
+        # nothing about the real conflict. The reporter itself is fine on
+        # Vitest 4; only the type dependency needed moving.
         include:
           - vitest: '3.0.9'
             node: '20'
+            types: '^18.19.50'
           - vitest: '3.2.7'
             node: '20'
+            types: '^18.19.50'
           - vitest: '4.1.10'
             node: '22'
+            types: '^22.0.0'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -70,6 +81,7 @@ jobs:
         # whole matrix.
         run: |
           npm pkg set devDependencies.vitest="${{ matrix.vitest }}"
+          npm pkg set devDependencies.@types/node="${{ matrix.types }}"
           npm install --no-audit --no-fund
       - run: npm run build
       - name: Confirm the matrix version is the one actually installed
