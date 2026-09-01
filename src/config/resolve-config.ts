@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import type { Platform } from '../shared/types.js';
 import { detectCi, type CiMetadata } from './ci-detect.js';
 import { detectGit, type GitInfo } from './git-detect.js';
@@ -24,6 +26,16 @@ export interface QualflareVitestOptions {
   ciBuildNumber?: string;
   ciRunUrl?: string;
   ciPrNumber?: number;
+  /** Identifier shared by every shard of one run, written into the report as
+   * `metadata.runId`. `qualflare-cli collect` groups files by it and refuses
+   * to merge a stale report from an earlier run into this launch.
+   *
+   * Auto-detected from CI (GitHub's `GITHUB_RUN_ID`, GitLab's
+   * `CI_PIPELINE_ID`, and so on). Outside CI it falls back to a per-process
+   * UUID, which is correct there: every local run is a distinct run, so a
+   * leftover file is still caught. Set this explicitly only when sharding
+   * outside a CI system that the detector knows. */
+  runId?: string;
   maxAttachmentBytes?: number;
   maxTotalAttachmentBytes?: number;
   debug?: boolean;
@@ -70,6 +82,7 @@ export interface ResolvedReporterConfig {
   ciBuildNumber?: string;
   ciRunUrl?: string;
   ciPrNumber?: number;
+  runId: string;
   maxAttachmentBytes: number;
   maxTotalAttachmentBytes: number;
   debug: boolean;
@@ -167,6 +180,15 @@ export function resolveConfig(
   const ciRunUrl = options.ciRunUrl ?? detectedCi.ciRunUrl;
   const ciPrNumber = options.ciPrNumber ?? detectedCi.ciPrNumber;
 
+  // Precedence matches every other option, with one addition: the UUID
+  // fallback. It matters that this is never empty — `qf collect` treats a
+  // report with no runId as "unknown run" and never lets it block a merge, so
+  // defaulting to '' would quietly opt local runs out of the very check this
+  // exists for. Outside CI a per-process UUID is the right answer: each local
+  // run is genuinely distinct, so a file left over from the previous one is
+  // still caught.
+  const runId = options.runId ?? firstEnv('QUALFLARE_RUN_ID') ?? detectedCi.ciRunId ?? randomUUID();
+
   return {
     // `||` (truthy check), not `??`, for these three REQUIRED-non-empty wire
     // fields — an explicit `''` option must not silently win over the
@@ -186,6 +208,7 @@ export function resolveConfig(
     ciBuildNumber,
     ciRunUrl,
     ciPrNumber,
+    runId,
     maxAttachmentBytes: options.maxAttachmentBytes ?? envInt('QUALFLARE_MAX_ATTACHMENT_BYTES') ?? 1_500_000,
     maxTotalAttachmentBytes:
       options.maxTotalAttachmentBytes ?? envInt('QUALFLARE_MAX_TOTAL_ATTACHMENT_BYTES') ?? 750_000,

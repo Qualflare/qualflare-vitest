@@ -134,9 +134,9 @@ wrong value cannot fail at test time — the reporter makes no requests — so t
 - **Browser-mode screenshots and traces are not attached.** They reach a reporter through
   `TestCase.artifacts()`, which is experimental and 4.x-only, so it is deliberately not read until
   it stabilises.
-- **`outputDir` is merged blindly** — `qf collect` uploads every report file it finds, with no
-  run-identity check, so a directory left over from a previous run is silently merged into the
-  current one. Clear it at the start of each run.
+- **A stale `outputDir` is refused, not merged** — each report carries a `runId`, and `qf collect`
+  errors rather than merging files from two different runs. Needs `@qualflare/cli` v0.1.19+; older
+  CLIs merge as before.
 
 Full details in [`docs/LIMITATIONS.md`](./docs/LIMITATIONS.md).
 

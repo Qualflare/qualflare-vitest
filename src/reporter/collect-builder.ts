@@ -63,6 +63,7 @@ export function buildCollectPayload(
       version: PACKAGE_VERSION,
       timestamp: new Date().toISOString(),
       cliName: 'qualflare-vitest',
+      runId: config.runId,
     },
     properties: config.properties,
     suites,
