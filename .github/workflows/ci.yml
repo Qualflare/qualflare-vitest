@@ -89,6 +89,12 @@ jobs:
         # @types/node is pinned per leg: Vitest 4 declares a peerOptional on
         # ">=20", while this package pins ^18 to match `engines: node >=18`.
         run: |
+          # npm 10.9.8, which the runner ships, crashes inside arborist on this
+          # graph — confirmed from CI's own diagnostic output, with package.json
+          # verified correct and no lockfile present. npm 11 resolves the identical
+          # input. This is the actual fix; the @types/node pin and the lockfile
+          # removal below are both still required, just not sufficient on their own.
+          npm install -g npm@^11
           node -e '
             const fs = require("node:fs");
             const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
