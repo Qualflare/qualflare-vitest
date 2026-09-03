@@ -85,6 +85,30 @@ quietly containing results nobody ran.
 
 Needs `@qualflare/cli` v0.1.19 or newer. An older CLI ignores `runId` and merges as before.
 
+## No per-attempt history
+
+The sibling reporters (`@qualflare/playwright`, `@qualflare/cypress`, `@qualflare/cucumberjs`) send
+`Case.attempts`: each attempt's status, duration and error. This reporter does not, and the reason is
+upstream rather than a gap here.
+
+What Vitest gives a reporter about a retried test:
+
+- `TestCase.diagnostic()` exposes aggregates only — `retryCount`, `repeatCount` and a native `flaky`
+  flag. There is no per-attempt array.
+- The final result keeps the earlier attempts' errors. The runner resets only `result.state` between
+  attempts and never clears `result.errors`, and Vitest's own types say so: *"If test was retried
+  successfully, errors will still be reported."* But it is one flat list, with nothing marking where
+  one attempt ends and the next begins.
+- There is no reporter hook for a retry. `updateTask("test-retried", …)` is an internal task update
+  and appears nowhere in the public `Reporter` interface.
+
+So the errors survive but the attempt boundaries do not, and neither do per-attempt statuses or
+durations. Building `Case.attempts` from that would mean inventing the timings, which is worse than
+omitting it — a wrong duration on an attempt reads as real data. `retryCount` and `isFlaky` are sent
+and are accurate.
+
+Revisit if Vitest adds a per-attempt structure or a retry-level reporter hook.
+
 ## `parameter()` outside a step has no masking
 
 Inside an open `step()`, a parameter attaches to that step and its `masked` flag is carried through.
