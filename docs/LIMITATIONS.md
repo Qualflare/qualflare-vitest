@@ -40,11 +40,13 @@ There is no video to attach — Vitest records none, in browser mode or otherwis
 of Vitest rather than a gap in this reporter, which is why it is not listed as a limitation of its
 own.
 
-## No `timeout` or `aborted` status
+## Statuses: Vitest reports four of the wire contract's seven
 
-The wire contract has seven statuses; Vitest reports four (`passed`, `failed`, `skipped`,
-`pending`). A test that times out surfaces as `failed` carrying a timeout message, so this reporter
-never emits `timeout` or `aborted`. Playwright distinguishes them and its reporter does map them.
+Vitest has `passed`, `failed`, `skipped` and `pending`. A test that exceeds `testTimeout` surfaces
+as `failed` carrying a timeout message — Vitest does not distinguish it — so this reporter never
+emits `timeout` or `aborted`. Playwright does distinguish them and its reporter maps them.
+
+Another property of Vitest rather than a gap here, so it is not listed as a limitation of its own.
 
 ## Step nesting is preserved, but the count is capped
 
@@ -85,29 +87,20 @@ quietly containing results nobody ran.
 
 Needs `@qualflare/cli` v0.1.19 or newer. An older CLI ignores `runId` and merges as before.
 
-## No per-attempt history
+## Retries: what Vitest gives, and what it does not
 
-The sibling reporters (`@qualflare/playwright`, `@qualflare/cypress`, `@qualflare/cucumberjs`) send
-`Case.attempts`: each attempt's status, duration and error. This reporter does not, and the reason is
-upstream rather than a gap here.
+A retried test reports `retryCount` and a native `flaky` flag, both accurate.
 
-What Vitest gives a reporter about a retried test:
+It does not report a per-attempt breakdown, and cannot: `TestCase.diagnostic()` exposes aggregates
+only, the runner keeps earlier attempts' errors in one flat list with nothing marking where an
+attempt ends, and there is no retry-level hook in the public `Reporter` interface. Per-attempt
+statuses and durations do not exist anywhere in the API, so the `Case.attempts` structure the
+Playwright, Cypress and CucumberJS reporters send cannot be built here without inventing the
+timings.
 
-- `TestCase.diagnostic()` exposes aggregates only — `retryCount`, `repeatCount` and a native `flaky`
-  flag. There is no per-attempt array.
-- The final result keeps the earlier attempts' errors. The runner resets only `result.state` between
-  attempts and never clears `result.errors`, and Vitest's own types say so: *"If test was retried
-  successfully, errors will still be reported."* But it is one flat list, with nothing marking where
-  one attempt ends and the next begins.
-- There is no reporter hook for a retry. `updateTask("test-retried", …)` is an internal task update
-  and appears nowhere in the public `Reporter` interface.
-
-So the errors survive but the attempt boundaries do not, and neither do per-attempt statuses or
-durations. Building `Case.attempts` from that would mean inventing the timings, which is worse than
-omitting it — a wrong duration on an attempt reads as real data. `retryCount` and `isFlaky` are sent
-and are accurate.
-
-Revisit if Vitest adds a per-attempt structure or a retry-level reporter hook.
+That is a property of Vitest rather than a gap in this reporter, which is why it is not listed as a
+limitation of its own — the same reasoning as the video note above. Revisit if Vitest adds a
+per-attempt structure or a retry-level reporter hook.
 
 ## `parameter()` outside a step has no masking
 

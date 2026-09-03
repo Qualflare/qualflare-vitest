@@ -127,6 +127,7 @@ wrong value cannot fail at test time — the reporter makes no requests — so t
 [the note in the configuration docs](./docs/CONFIGURATION.md#environment-is-matched-by-uid-not-display-name).
 
 ## Known limitations
+
 - **Native annotations need Vitest 3.2+.** `task.annotate()` and `TestCase.annotations()` arrived in
   3.2, but the peer floor is 3.0. On 3.0/3.1 annotations are simply not read — `qualflare.attachment()`
   works throughout.
@@ -136,13 +137,6 @@ wrong value cannot fail at test time — the reporter makes no requests — so t
 - **A stale `outputDir` is refused, not merged** — each report carries a `runId`, and `qf collect`
   errors rather than merging files from two different runs. Needs `@qualflare/cli` v0.1.19+; older
   CLIs merge as before.
-- **No `timeout` or `aborted` status** — Vitest reports four of the wire contract's seven
-  statuses, so a test that times out arrives as `failed` carrying a timeout message.
-- **No per-attempt history.** A retried test reports `retryCount` and a native flaky flag, but
-  not a per-attempt breakdown — Vitest's API exposes no attempt boundaries, so the sibling
-  reporters' `Case.attempts` cannot be reconstructed. See
-  [`docs/LIMITATIONS.md`](./docs/LIMITATIONS.md#no-per-attempt-history) for what is and is not
-  recoverable.
 - **`parameter()` outside a step is not masked** — `masked` is a display hint for the UI; the
   server never redacts the value, so never put a real secret in one. See
   [`docs/LIMITATIONS.md`](./docs/LIMITATIONS.md#parameter-outside-a-step-has-no-masking).
