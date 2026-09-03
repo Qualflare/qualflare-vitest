@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.2.1
+
+### Changed
+
+- Documentation only; no code change. The limitations list now separates what *this reporter* does
+  not do from what **Vitest** does not do — per-attempt retry history, the three missing statuses
+  and video are properties of Vitest, not gaps here, and listing them as limitations implied we
+  were withholding something. They now sit under "Not limitations of this reporter".
+- The `parameter()` masking caveat and the attachment-cap consequence are surfaced in the README
+  rather than only in `docs/LIMITATIONS.md`.
+
 ## 0.2.0
 
 ### Added
