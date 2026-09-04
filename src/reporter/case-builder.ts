@@ -14,6 +14,7 @@ import { logger } from '../shared/logger.js';
 import type { Attachment, Case, CaseStatus, Label, Link, Parameter, Step } from '../shared/types.js';
 import type { RuntimeMessage } from '../runtime/message-types.js';
 import { AttachmentBudget, inlineFromBuffer, inlineFromFile } from './attachment-reader.js';
+import { buildParameter, propertyValue } from '../shared/parameters.js';
 
 /**
  * Maps Vitest's result states onto the wire contract's vocabulary.
@@ -156,11 +157,7 @@ function replayMetadata(
         meta.priority = message.value;
         break;
       case 'parameter': {
-        const param: Parameter = {
-          name: message.name,
-          ...(message.value !== undefined ? { value: message.value } : {}),
-          ...(message.masked ? { masked: true } : {}),
-        };
+        const param: Parameter = buildParameter(message.name, message.value, message.masked);
         const open = openSteps[openSteps.length - 1];
         if (open === undefined) {
           meta.caseParameters.push(param);
@@ -315,7 +312,7 @@ export function buildCase(
     file: testCase.module.moduleId,
   };
   for (const p of meta.caseParameters) {
-    properties[p.name] = p.value ?? '';
+    properties[p.name] = propertyValue(p.value, p.masked);
   }
 
   const attachments = [...annotationsToAttachments(testCase, config, budget), ...meta.attachments];

@@ -128,23 +128,19 @@ wrong value cannot fail at test time — the reporter makes no requests — so t
 
 ## Known limitations
 
-- **Native annotations need Vitest 3.2+.** `task.annotate()` and `TestCase.annotations()` arrived in
-  3.2, but the peer floor is 3.0. On 3.0/3.1 annotations are simply not read — `qualflare.attachment()`
-  works throughout.
 - **Browser-mode screenshots and traces are not attached.** They reach a reporter through
   `TestCase.artifacts()`, which is experimental and 4.x-only, so it is deliberately not read until
   it stabilises.
-- **A stale `outputDir` is refused, not merged** — each report carries a `runId`, and `qf collect`
-  errors rather than merging files from two different runs. Needs `@qualflare/cli` v0.1.19+; older
-  CLIs merge as before.
-- **`parameter()` outside a step is not masked** — `masked` is a display hint for the UI; the
-  server never redacts the value, so never put a real secret in one. See
-  [`docs/LIMITATIONS.md`](./docs/LIMITATIONS.md#parameter-outside-a-step-has-no-masking).
-- **Attachment caps are two budgets, not one pool** — `maxAttachmentBytes` bounds a single
-  attachment and `maxTotalAttachmentBytes` the whole run; anything over either is dropped
-  outright rather than truncated. Raising them is the easiest way to push a request past
-  `/collect`'s body limit. See
-  [`docs/LIMITATIONS.md`](./docs/LIMITATIONS.md#per-attachment-and-whole-run-caps-are-independent-not-pooled).
+- **A masked `parameter()` value is redacted, not recoverable** — `{ masked: true }` now drops the
+  value before the report is written, so the secret never leaves the machine. Outside a step it
+  becomes `••••••` in the case's `properties`, which is a flat map with nowhere to put the flag.
+  There is no way to read the real value back afterwards. See
+  [`docs/LIMITATIONS.md`](./docs/LIMITATIONS.md#parameter-masking-redacts-the-value).
+- **Attachment caps still exist, but no longer risk the launch** — `maxAttachmentBytes` (5MB)
+  bounds one attachment and `maxTotalAttachmentBytes` (10MB) the whole run; anything over either is
+  dropped. Needs `@qualflare/cli` v0.1.22+, which uploads attachments out of band — on an older CLI
+  these limits can push the request past the server's body limit and fail the whole launch. See
+  [`docs/LIMITATIONS.md`](./docs/LIMITATIONS.md#attachment-caps).
 
 Full details in [`docs/LIMITATIONS.md`](./docs/LIMITATIONS.md).
 
