@@ -131,11 +131,6 @@ wrong value cannot fail at test time — the reporter makes no requests — so t
 - **Browser-mode screenshots and traces are not attached.** They reach a reporter through
   `TestCase.artifacts()`, which is experimental and 4.x-only, so it is deliberately not read until
   it stabilises.
-- **Attachment caps still exist, but no longer risk the launch** — `maxAttachmentBytes` (5MB)
-  bounds one attachment and `maxTotalAttachmentBytes` (10MB) the whole run; anything over either is
-  dropped. Needs `@qualflare/cli` v0.1.22+, which uploads attachments out of band — on an older CLI
-  these limits can push the request past the server's body limit and fail the whole launch. See
-  [`docs/LIMITATIONS.md`](./docs/LIMITATIONS.md#attachment-caps).
 
 Full details in [`docs/LIMITATIONS.md`](./docs/LIMITATIONS.md).
 
