@@ -42,8 +42,8 @@ There is **no `token` option**. This reporter makes no network calls, so it has 
 | `ciBuildNumber` | — | auto-detected | |
 | `ciRunUrl` | — | auto-detected | |
 | `ciPrNumber` | — | auto-detected | |
-| `maxAttachmentBytes` | `QUALFLARE_MAX_ATTACHMENT_BYTES` | `1500000` | Per-attachment cap for inline (base64) attachments. |
-| `maxTotalAttachmentBytes` | `QUALFLARE_MAX_TOTAL_ATTACHMENT_BYTES` | `750000` | Whole-run inline budget, shared by `qualflare.attachment()` and native annotations. Conservative on purpose: `/collect` rejects a body over 10MB and a rejected request loses the ENTIRE launch. |
+| `maxAttachmentBytes` | `QUALFLARE_MAX_ATTACHMENT_BYTES` | `5000000` (5MB) | Per-attachment cap. Anything larger is skipped with a warning rather than truncated. The server's own ceiling is 50MB per file, so this can be raised. |
+| `maxTotalAttachmentBytes` | `QUALFLARE_MAX_TOTAL_ATTACHMENT_BYTES` | `10000000` (10MB) | Whole-run attachment budget; once spent, further attachments are skipped. It was 750KB while attachments were base64-inlined into `/collect`'s 10MB body — `@qualflare/cli` v0.1.22+ uploads them out of band, so this now bounds only the report file on disk. Videos and traces are exempt; they are copied, not inlined. |
 | `debug` | `QUALFLARE_DEBUG` → `QF_DEBUG` | `false` | Extra detail on stderr. |
 
 ## Branch and commit auto-detection
