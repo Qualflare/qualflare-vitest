@@ -63,12 +63,22 @@ produced a launch that looked entirely plausible and contained results nobody ra
 **On `@qualflare/cli` older than v0.1.21 you get one of those two older behaviours** — a refusal on
 v0.1.19–v0.1.20, and a silent merge before that.
 
-## `parameter()` outside a step has no masking
+## `parameter()` masking redacts the value
 
-Inside an open `step()`, a parameter attaches to that step and its `masked` flag is carried through.
-Outside any step it lands in the case's `properties`, which is a flat `Record<string, string>` with
-nowhere to put the flag. `masked` is a display hint for the UI in either case — the server does not
-redact the value, so never put a real secret in one.
+`{ masked: true }` drops the value before the report is written. The secret never leaves this
+process, so it is not stored server-side and cannot be read back through the API.
+
+Inside a step, the parameter travels as `{ name, masked: true }` with no value, and the Qualflare UI
+renders `••••••` from the flag. Outside any step it lands in the case's `properties`, a flat
+`Record<string, string>` with nowhere to put the flag — so the value itself becomes `••••••`.
+Either way the report carries no secret.
+
+**The value is unrecoverable.** That is the point, but it is worth stating: masking is not a display
+toggle you can undo later. Mask a value you may need to read back and it is gone.
+
+This used to be a display hint only — the real value was sent, stored in plaintext and readable
+through the API, while the UI drew dots over it. Anyone who trusted the name got no protection at
+all, which is why the docs had to say "never put a real secret in one". They no longer do.
 
 ## Per-attachment and whole-run caps are independent, not pooled
 
