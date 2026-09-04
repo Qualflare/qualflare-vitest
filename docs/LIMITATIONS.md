@@ -12,22 +12,6 @@ a flaky flag, or annotations at all. Supporting it would mean a second implement
 less information, so `peerDependencies` declares `>=3.0.0` and npm refuses the install below that
 rather than producing a silently poorer report.
 
-## Native annotations need Vitest 3.2+
-
-`task.annotate()` and `TestCase.annotations()` arrived in 3.2. The peer floor is 3.0, so the
-reporter feature-detects rather than assuming:
-
-```ts
-if (typeof testCase.annotations !== 'function') return [];
-```
-
-On 3.0/3.1 you get no native annotations — a concept your Vitest does not have — while
-`qualflare.attachment()` works throughout. CI runs a 3.0 leg specifically to prove the unguarded
-call would have thrown there.
-
-This is the same shape as the sibling Playwright package, which declares a 1.40 floor while
-`TestCase.tags` only exists from 1.42.
-
 ## Browser-mode screenshots and traces are not attached
 
 Vitest's browser mode produces failure screenshots (`browser.screenshotFailures`) and replayable
@@ -120,3 +104,9 @@ it — so no `timeout` or `aborted` ever reaches a report. Playwright does disti
 reporter maps them.
 
 **No video, anywhere.** Vitest records none, in browser mode or otherwise.
+
+**Native annotations need Vitest 3.2+.** `task.annotate()` and `TestCase.annotations()` arrived in
+3.2, and the peer floor is 3.0 — so on 3.0/3.1 there are no annotations for this reporter to read.
+It feature-detects rather than assuming (`typeof testCase.annotations !== 'function'`), and CI runs a
+3.0 leg to prove the unguarded call would have thrown. `qualflare.attachment()` works throughout;
+upgrading to 3.2+ is what gets you the native ones.
