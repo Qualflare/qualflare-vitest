@@ -134,9 +134,6 @@ wrong value cannot fail at test time — the reporter makes no requests — so t
 - **Browser-mode screenshots and traces are not attached.** They reach a reporter through
   `TestCase.artifacts()`, which is experimental and 4.x-only, so it is deliberately not read until
   it stabilises.
-- **A stale `outputDir` is refused, not merged** — each report carries a `runId`, and `qf collect`
-  errors rather than merging files from two different runs. Needs `@qualflare/cli` v0.1.19+; older
-  CLIs merge as before.
 - **`parameter()` outside a step is not masked** — `masked` is a display hint for the UI; the
   server never redacts the value, so never put a real secret in one. See
   [`docs/LIMITATIONS.md`](./docs/LIMITATIONS.md#parameter-outside-a-step-has-no-masking).
