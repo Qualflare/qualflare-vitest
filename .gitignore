@@ -13,3 +13,6 @@ test/integration/fixtures/**/qualflare-results/
 # example project artifacts
 examples/**/node_modules/
 examples/**/qualflare-results/
+
+# Dogfood suite output (e2e/) — the report plus any screenshots it writes.
+e2e-results/
