@@ -9,7 +9,7 @@ export default tseslint.config(
       'node_modules/**',
       'test/integration/fixtures/**',
       // A standalone example project with its own package.json/dependency
-      // resolution (imports '@qualflare/playwright' by its published name,
+      // resolution (imports '@qualflare/vitest' by its published name,
       // not a relative path) — not part of this repo's own TS project graph.
       'examples/**',
       // The dogfood suite: a standalone Vitest project that loads the reporter
