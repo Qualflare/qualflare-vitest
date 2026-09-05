@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import * as nodeFs from 'node:fs';
+import * as nodeOs from 'node:os';
+import * as nodePath from 'node:path';
+
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildCase } from '../../src/reporter/case-builder.js';
 import { AttachmentBudget } from '../../src/reporter/attachment-reader.js';
@@ -373,5 +377,92 @@ describe('buildCase — per-attempt history', () => {
     // the whole time.
     expect(built.attempts!.every((a) => a.duration === undefined)).toBe(true);
     expect(built.attempts!.every((a) => a.startedAt === undefined)).toBe(true);
+  });
+});
+
+describe('buildCase — screenshots travel out of band', () => {
+  let outDir: string;
+
+  beforeEach(() => {
+    outDir = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), 'qf-cb-image-'));
+  });
+
+  afterEach(() => {
+    nodeFs.rmSync(outDir, { recursive: true, force: true });
+  });
+
+  const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+  it('writes a qualflare.attachment() image into outputDir instead of inlining it', () => {
+    const built = buildCase(
+      fakeTestCase({
+        meta: [
+          {
+            type: 'attachment',
+            name: 'shot',
+            mimeType: 'image/png',
+            contentBase64: PNG.toString('base64'),
+          },
+        ] as never,
+      }),
+      config({ outputDir: outDir }),
+      new AttachmentBudget(500_000),
+    )!;
+
+    const shot = built.attachments!.find((a) => a.name === 'shot')!;
+    expect(shot.content).toBeUndefined();
+    expect(shot.mimeType).toBe('image/png');
+    expect(typeof shot.localImagePath).toBe('string');
+    expect(nodeFs.readFileSync(nodePath.join(outDir, shot.localImagePath!)).equals(PNG)).toBe(true);
+    expect(shot.fileSize).toBe(PNG.length);
+  });
+
+  it('leaves a non-image attachment inline, unchanged', () => {
+    const built = buildCase(
+      fakeTestCase({
+        meta: [
+          { type: 'attachment', name: 'note', mimeType: 'text/plain', contentBase64: Buffer.from('hi').toString('base64') },
+        ] as never,
+      }),
+      config({ outputDir: outDir }),
+      new AttachmentBudget(500_000),
+    )!;
+
+    const note = built.attachments!.find((a) => a.name === 'note')!;
+    expect(note.localImagePath).toBeUndefined();
+    expect(note.content).toBe(Buffer.from('hi').toString('base64'));
+  });
+
+  it('an image no longer draws on the inline budget it does not use', () => {
+    // The run budget exists to bound the /collect body. A copied screenshot is
+    // not in that body, so charging it would starve the attachments that are.
+    const budget = new AttachmentBudget(500_000);
+    buildCase(
+      fakeTestCase({
+        meta: [
+          { type: 'attachment', name: 'shot', mimeType: 'image/png', contentBase64: PNG.toString('base64') },
+        ] as never,
+      }),
+      config({ outputDir: outDir }),
+      budget,
+    );
+    expect(budget.usedBytes).toBe(0);
+  });
+
+  it('falls back to inlining when the image cannot be written, rather than dropping it', () => {
+    // No outputDir: the offload is worth losing, the user's attachment is not.
+    const built = buildCase(
+      fakeTestCase({
+        meta: [
+          { type: 'attachment', name: 'shot', mimeType: 'image/png', contentBase64: PNG.toString('base64') },
+        ] as never,
+      }),
+      config(),
+      new AttachmentBudget(500_000),
+    )!;
+
+    const shot = built.attachments!.find((a) => a.name === 'shot')!;
+    expect(shot.localImagePath).toBeUndefined();
+    expect(shot.content).toBe(PNG.toString('base64'));
   });
 });
