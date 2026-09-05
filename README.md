@@ -23,9 +23,12 @@ npm install --save-dev @qualflare/vitest
 
 Requires `vitest` `>=3.0.0` (installed separately as a peer dependency) and Node `>=18` (Vitest 4
 itself requires Node `>=20`). You also need
-[`@qualflare/cli`](https://github.com/Qualflare/qualflare-cli) **v0.1.18 or newer** — that is the
-first release that recognises `vitest` as a framework; an older CLI silently labels your suites
-`generic`.
+[`@qualflare/cli`](https://github.com/Qualflare/qualflare-cli) **v0.1.24 or newer**. v0.1.18 was the
+first release that recognised `vitest` as a framework (an older CLI silently labels your suites
+`generic`), and v0.1.24 is the first that reads `localImagePath` — image attachments are now written
+into `outputDir` rather than base64-inlined into the report, and a CLI that ignores the field leaves
+an attachment with neither content nor a storage key, which the server records from its name alone
+as an undownloadable placeholder.
 
 The peer range is deliberately open-ended rather than capped at a known-good version, so a new
 Vitest release never hard-blocks `npm install` for you. 3.0, 3.2 and 4.x are exercised in CI against
@@ -128,6 +131,10 @@ wrong value cannot fail at test time — the reporter makes no requests — so t
 
 ## Known limitations
 
+- **Image attachments go out of band.** A screenshot handed to `qualflare.attachment()` or carried
+  by a Vitest annotation is written into `outputDir` and referenced by name, not base64-inlined, so
+  it no longer competes for the report body or the run's attachment budget. Only png/jpeg/gif can
+  take that route — those are what the upload endpoint accepts — and everything else still inlines.
 - **Per-attempt history is reconstructed, not read, and needs `@qualflare/cli` v0.1.23+.** Vitest
   exposes no per-attempt array, so `Case.attempts` is rebuilt from its accumulated error list.
   Per-attempt durations are unavailable, and a test using `expect.soft()` reports no attempt history

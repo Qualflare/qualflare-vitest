@@ -117,6 +117,24 @@ describe('a real vitest run', () => {
     expect(flaky.isFlaky).toBe(true);
   });
 
+  it('writes an image attachment into outputDir instead of inlining it', async () => {
+    const report = await runFixture(outputDir);
+    const imageCase = caseNamed(report, 'attaches a screenshot through the metadata API');
+    expect(imageCase.attachments).toHaveLength(1);
+    const shot = imageCase.attachments![0]!;
+    expect(shot.mimeType).toBe('image/png');
+    expect(shot.content).toBeUndefined();
+    expect(typeof shot.localImagePath).toBe('string');
+    const shotPath = path.join(outputDir, shot.localImagePath!);
+    expect(fs.existsSync(shotPath)).toBe(true);
+    expect(shot.fileSize).toBe(fs.statSync(shotPath).size);
+    // A real PNG, not merely named one.
+    expect(fs.readFileSync(shotPath).subarray(0, 8)).toEqual(
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    );
+    expect(shot.storageKey).toBeUndefined();
+  });
+
   it('carries per-attempt history through a real retried run', async () => {
     const report = await runFixture(outputDir);
     const flaky = caseNamed(report, 'passes on the second attempt');
