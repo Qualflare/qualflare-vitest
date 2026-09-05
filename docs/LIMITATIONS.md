@@ -80,6 +80,19 @@ This used to be a display hint only — the real value was sent, stored in plain
 through the API, while the UI drew dots over it. Anyone who trusted the name got no protection at
 all, which is why the docs had to say "never put a real secret in one". They no longer do.
 
+## Per-attempt history needs `@qualflare/cli` v0.1.23+
+
+`Case.attempts` is written into the report file by every reporter version that supports it, but
+until v0.1.23 the CLI had no field for it and `encoding/json` discarded it while decoding the
+report. The history reached the file and never reached the server.
+
+Nothing about that was visible. `retryCount` and `isFlaky` travel beside `attempts` and always had
+fields, so a launch looked complete: it reported that a test was retried while the record of what
+went wrong on each attempt was gone. This is not something the reporter can detect for you -- it
+writes the same file either way.
+
+On v0.1.23+ no report change is needed; re-collecting an already-written report file is enough.
+
 ## Attachment caps need `@qualflare/cli` v0.1.22+
 
 `maxAttachmentBytes` (5MB) and `maxTotalAttachmentBytes` (10MB) are configurable — see

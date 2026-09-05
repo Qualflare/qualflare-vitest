@@ -5,6 +5,39 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.3.2
+
+### Added
+
+- Per-attempt retry history. A retried test now sends `Case.attempts`, recording what each attempt
+  did, so a report can answer "what failed on the first try?" — which `retryCount` and `isFlaky`,
+  both aggregates, cannot. This brings the reporter in line with the Playwright, Cypress and
+  CucumberJS reporters, which have sent it since their 0.5/0.6 releases.
+
+  Vitest exposes no per-attempt array and no retry-level `Reporter` hook, so the history is
+  reconstructed from `result.errors`, which accumulates across attempts in order. The boundaries are
+  pinned by counting: every non-final attempt failed, because a pass ends the retry loop, so the
+  error count is exactly `retryCount` when the last attempt passed and `retryCount + 1` when it
+  failed. Verified against vitest 3.0.9, 3.2.7 and 4.1.10.
+
+  **Requires `@qualflare/cli` v0.1.23+.** Earlier versions discard `attempts` while decoding the
+  report, so the history is written to the file but never reaches the server.
+
+### Fixed
+
+- `LIMITATIONS.md` claimed per-attempt history was impossible for this reporter. It is not, and the
+  entry now describes the two things that genuinely are unavailable rather than the whole feature.
+
+### Known limitations
+
+- No per-attempt `duration` or `startedAt`: `diagnostic()` reports run-wide aggregates only. Those
+  fields are left unset rather than filled with the total, which would claim every attempt took the
+  whole run.
+- A test using `expect.soft()` reports no attempt history at all. Soft assertions let one attempt
+  contribute several errors, so the count no longer pins the boundaries — three errors over two
+  attempts could be 2+1 or 1+2, and nothing says which. `attempts` is omitted rather than guessed
+  at; the case still carries `retryCount` and the combined error text.
+
 ## 0.3.1
 
 ### Fixed
