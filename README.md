@@ -128,10 +128,11 @@ wrong value cannot fail at test time — the reporter makes no requests — so t
 
 ## Known limitations
 
-- **Per-attempt history is reconstructed, not read.** Vitest exposes no per-attempt array, so
-  `Case.attempts` is rebuilt from its accumulated error list. Per-attempt durations are unavailable,
-  and a test using `expect.soft()` reports no attempt history at all — see
-  [`docs/LIMITATIONS.md`](./docs/LIMITATIONS.md).
+- **Per-attempt history is reconstructed, not read, and needs `@qualflare/cli` v0.1.23+.** Vitest
+  exposes no per-attempt array, so `Case.attempts` is rebuilt from its accumulated error list.
+  Per-attempt durations are unavailable, and a test using `expect.soft()` reports no attempt history
+  at all. On a CLI older than v0.1.23 the history is written to the report and then discarded before
+  it reaches the server — see [`docs/LIMITATIONS.md`](./docs/LIMITATIONS.md).
 - **Browser-mode screenshots and traces are not attached.** They reach a reporter through
   `TestCase.artifacts()`, which is experimental and 4.x-only, so it is deliberately not read until
   it stabilises.
