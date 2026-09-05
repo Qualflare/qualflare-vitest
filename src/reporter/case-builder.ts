@@ -2,6 +2,9 @@ import type { TestCase } from 'vitest/node';
 
 import type { ResolvedReporterConfig } from '../config/resolve-config.js';
 import {
+  MAX_ATTEMPT_MESSAGE_RUNES,
+  MAX_ATTEMPT_TRACE_RUNES,
+  MAX_ATTEMPTS_PER_CASE,
   MAX_LABELS_PER_CASE,
   MAX_LINKS_PER_CASE,
   MAX_STEPS_PER_TEST_ATTEMPT,
@@ -10,8 +13,9 @@ import {
   QUALFLARE_META_KEY,
 } from '../shared/constants.js';
 import { msToNs } from '../shared/duration.js';
+import { truncateRunes } from '../shared/text.js';
 import { logger } from '../shared/logger.js';
-import type { Attachment, Case, CaseStatus, Label, Link, Parameter, Step } from '../shared/types.js';
+import type { Attachment, Attempt, Case, CaseStatus, Label, Link, Parameter, Step } from '../shared/types.js';
 import type { RuntimeMessage } from '../runtime/message-types.js';
 import { AttachmentBudget, inlineFromBuffer, inlineFromFile } from './attachment-reader.js';
 import { buildParameter, propertyValue } from '../shared/parameters.js';
@@ -283,6 +287,107 @@ function annotationsToAttachments(
   return out;
 }
 
+/** One entry of Vitest's `result.errors`. */
+type VitestError = { message?: string; stack?: string; diff?: string };
+
+/**
+ * Splits one error into the wire's separate `message`/`trace` fields.
+ *
+ * Unlike Cypress — which hands us `${message}\n${stack}` already flattened and
+ * so has to put everything in `message` — Vitest keeps `stack` distinct, so the
+ * trace lands in the field built for it and is bounded by its own (much larger)
+ * server cap. `diff` rides along in `message` because it is the rendered
+ * expected/actual block, not a stack.
+ */
+function attemptErrorFields(err: VitestError): { message?: string; trace?: string } {
+  const parts = [stripAnsi(err.message ?? 'test failed')];
+  if (err.diff) {
+    parts.push('', stripAnsi(err.diff));
+  }
+  const fields: { message?: string; trace?: string } = {
+    message: truncateRunes(parts.join('\n'), MAX_ATTEMPT_MESSAGE_RUNES),
+  };
+  // Same guard formatErrors uses: skip a stack the message already embeds
+  // rather than paying for it twice on the wire.
+  if (err.stack && !(err.message ?? '').includes(err.stack)) {
+    fields.trace = truncateRunes(stripAnsi(err.stack), MAX_ATTEMPT_TRACE_RUNES);
+  }
+  return fields;
+}
+
+/**
+ * Reconstructs per-attempt history from what Vitest actually exposes.
+ *
+ * Vitest has no per-attempt array and no retry-level reporter hook: the runner
+ * MUTATES a single `result` object across attempts, and the `test-retried`
+ * events that would mark the boundaries are coalesced by
+ * `sendTasksUpdateThrottled` before a reporter sees them. What survives is
+ * `result.errors`, which ACCUMULATES across attempts in chronological order,
+ * plus `diagnostic.retryCount`.
+ *
+ * That is enough to rebuild the history, but only when each execution
+ * contributed exactly one error. Every non-final execution necessarily failed
+ * (a pass ends the retry loop), so it contributes at least one; the final
+ * contributes one if it failed and none if it passed. So the error count is
+ * pinned:
+ *
+ *     executions N   = retryCount + 1
+ *     expected count = final failed ? N : N - 1
+ *
+ * A LARGER count means some execution produced several errors — `expect.soft()`
+ * accumulates them — and there is no marker saying which errors belong to which
+ * attempt. Three errors over two executions could be 2+1 or 1+2, and guessing
+ * would attribute a failure to the wrong attempt, which is worse than saying
+ * nothing. So this returns undefined and the Case falls back to `retryCount`
+ * plus the combined `error` text, exactly as before this function existed.
+ *
+ * Per-attempt `duration`/`startedAt` are not recoverable either — `diagnostic`
+ * reports only run-wide aggregates — so those fields are left unset rather than
+ * filled with the total, which would read as each attempt taking the whole time.
+ */
+function buildAttempts(
+  errors: ReadonlyArray<VitestError> | undefined,
+  retryCount: number,
+  finalStatus: CaseStatus,
+  finalFailed: boolean,
+): Attempt[] | undefined {
+  // Rule 2 of the contract: fewer than two attempts persists nothing.
+  if (retryCount < 1) {
+    return undefined;
+  }
+
+  const list = errors ?? [];
+  const executions = retryCount + 1;
+  const expected = finalFailed ? executions : executions - 1;
+  if (list.length !== expected) {
+    return undefined;
+  }
+
+  const built: Attempt[] = [];
+  for (let i = 0; i < executions; i += 1) {
+    const isFinal = i === executions - 1;
+    const attempt: Attempt = {
+      attempt: i + 1,
+      // Every non-final execution failed by construction; only the last one
+      // carries the Case's real outcome.
+      status: isFinal ? finalStatus : 'failed',
+    };
+    const err = list[i];
+    if (err) {
+      Object.assign(attempt, attemptErrorFields(err));
+    }
+    built.push(attempt);
+  }
+
+  // Past the cap the server keeps the first 49 plus the final one and drops the
+  // middle. Mirroring that here means the bytes are never sent, and the FINAL
+  // attempt survives the trim — a plain slice(0, 50) would discard it.
+  if (built.length > MAX_ATTEMPTS_PER_CASE) {
+    return [...built.slice(0, MAX_ATTEMPTS_PER_CASE - 1), built[built.length - 1]!];
+  }
+  return built;
+}
+
 /**
  * Builds one wire `Case` from a finished Vitest test.
  *
@@ -322,14 +427,22 @@ export function buildCase(
   const nativeTags = (testCase as { tags?: string[] }).tags ?? [];
   const tags = capTags([...nativeTags, ...meta.tags]);
   const error = formatErrors(result.errors);
+  const status = mapStatus(result.state);
+  const attempts = buildAttempts(
+    result.errors,
+    diagnostic?.retryCount ?? 0,
+    status,
+    result.state === 'failed',
+  );
 
   return {
     id: testCase.id,
     name: testCase.fullName,
     className: testCase.module.moduleId,
-    status: mapStatus(result.state),
+    status,
     duration: msToNs(diagnostic?.duration ?? 0),
     retryCount: diagnostic?.retryCount ?? 0,
+    ...(attempts ? { attempts } : {}),
     isFlaky: diagnostic?.flaky ?? false,
     ...(error ? { error } : {}),
     ...(meta.priority ? { priority: meta.priority } : {}),

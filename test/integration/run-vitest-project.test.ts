@@ -117,6 +117,18 @@ describe('a real vitest run', () => {
     expect(flaky.isFlaky).toBe(true);
   });
 
+  it('carries per-attempt history through a real retried run', async () => {
+    const report = await runFixture(outputDir);
+    const flaky = caseNamed(report, 'passes on the second attempt');
+    // Two executions: the first failed, the second passed. Without this the
+    // first attempt's error is not recoverable from the report at all --
+    // retryCount says it was retried, but not what went wrong the first time.
+    expect(flaky.attempts).toHaveLength(2);
+    expect(flaky.attempts?.map((a) => a.status)).toEqual(['failed', 'passed']);
+    expect(flaky.attempts?.[0]?.message).toBeTruthy();
+    expect(flaky.attempts?.[1]?.message).toBeUndefined();
+  });
+
   it('records durations in nanoseconds', async () => {
     const report = await runFixture(outputDir);
     // Milliseconds would be ~1000x smaller; this catches a unit regression.
