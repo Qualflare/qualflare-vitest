@@ -109,12 +109,24 @@ Things Vitest itself does not do. They are recorded here because people ask why 
 looks different from a Playwright or Cypress one — not because anything is being withheld. There is
 nothing to fix on this side; each would need a change in Vitest.
 
-**No per-attempt retry history.** A retried test reports `retryCount` and a native `flaky` flag,
-both accurate, but no per-attempt breakdown. `TestCase.diagnostic()` exposes aggregates only, the
-runner keeps earlier attempts' errors in one flat list with nothing marking where an attempt ends,
-and the public `Reporter` interface has no retry-level hook. Per-attempt statuses and durations
-exist nowhere in the API, so the `Case.attempts` structure the Playwright, Cypress and CucumberJS
-reporters send cannot be built here without inventing the timings.
+**No per-attempt timings, and no history at all when `expect.soft()` is used.** Per-attempt
+statuses and errors ARE sent as `Case.attempts`, like the other three reporters — but reconstructed
+rather than read, because Vitest exposes no per-attempt array and no retry-level `Reporter` hook.
+What it does expose is `result.errors`, which accumulates across attempts in order, plus
+`diagnostic.retryCount`. Every non-final attempt necessarily failed (a pass ends the retry loop), so
+the error count is pinned to `retryCount` when the last attempt passed and `retryCount + 1` when it
+failed, and the list splits one-to-one onto attempts.
+
+Two consequences, both from Vitest rather than from this reporter:
+
+- **No per-attempt `duration` or `startedAt`.** `diagnostic()` reports run-wide aggregates only.
+  Those fields are left unset rather than filled with the total, which would claim every attempt
+  took the whole time.
+- **`expect.soft()` suppresses the history.** Soft assertions let one attempt contribute several
+  errors, so the count no longer pins the boundaries — three errors over two attempts could be 2+1
+  or 1+2. Nothing in the payload says which, so `attempts` is omitted rather than guessed at, and
+  the case falls back to `retryCount` plus the combined `error` text. Attributing a failure to the
+  wrong attempt would be worse than not showing one.
 
 **Four statuses, not seven.** Vitest has `passed`, `failed`, `skipped` and `pending`. A test that
 exceeds `testTimeout` surfaces as `failed` carrying a timeout message — Vitest does not distinguish
