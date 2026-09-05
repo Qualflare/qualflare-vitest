@@ -5,7 +5,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
 
 A native Vitest reporter for [Qualflare](https://qualflare.com) — captures test results directly
-from your `vitest run`: status, real retry counts and flakiness, assertion diffs, nested steps, and
+from your `vitest run`: status, per-attempt retry history and flakiness, assertion diffs, nested steps, and
 author-facing metadata (labels, links, tags, priority, custom attachments).
 
 Without it, Vitest results reach Qualflare through the Jest-compatible JSON file, which carries
@@ -128,6 +128,10 @@ wrong value cannot fail at test time — the reporter makes no requests — so t
 
 ## Known limitations
 
+- **Per-attempt history is reconstructed, not read.** Vitest exposes no per-attempt array, so
+  `Case.attempts` is rebuilt from its accumulated error list. Per-attempt durations are unavailable,
+  and a test using `expect.soft()` reports no attempt history at all — see
+  [`docs/LIMITATIONS.md`](./docs/LIMITATIONS.md).
 - **Browser-mode screenshots and traces are not attached.** They reach a reporter through
   `TestCase.artifacts()`, which is experimental and 4.x-only, so it is deliberately not read until
   it stabilises.

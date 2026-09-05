@@ -32,3 +32,12 @@ export const MAX_TAG_LENGTH = 255;
  * further steps within that attempt are dropped (with a one-time warning),
  * not queued and truncated later. */
 export const MAX_STEPS_PER_TEST_ATTEMPT = 300;
+
+/**
+ * Server-side bounds on `Case.attempts`, mirrored client-side so the bytes are
+ * never sent rather than truncated on arrival. Values match the sibling
+ * reporters and `case_run_attempts`.
+ */
+export const MAX_ATTEMPTS_PER_CASE = 50;
+export const MAX_ATTEMPT_MESSAGE_RUNES = 8192;
+export const MAX_ATTEMPT_TRACE_RUNES = 32768;
