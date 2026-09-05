@@ -5,6 +5,36 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.4.0
+
+### Changed
+
+- **Screenshots are written into `outputDir` and referenced by `localImagePath`, instead of being
+  base64-inlined into the report.** They now travel the same way videos and traces already did: the
+  report file carries no image bytes, and the CLI uploads them out of band rather than sending them
+  inside `/collect`'s request body.
+
+  Narrower than the other three, deliberately. Vitest has no framework-level screenshot capture —
+  browser-mode artifacts come through `TestCase.artifacts()`, which is experimental and 4.x-only and
+  not read yet — so there is no automatic per-failure screenshot to displace. What this covers is
+  the metadata API and Vitest annotations, both of which can carry a path or a body. The gain is
+  contract uniformity; when `artifacts()` stabilises, the route is already here.
+
+  **Requires `@qualflare/cli` v0.1.24+.** An older CLI does not read the field, and because such an
+  attachment carries neither content nor a storage key the server records it from its name alone —
+  an undownloadable placeholder. Upgrade the CLI first.
+
+- Screenshots upload by default on the CLI side; video and traces remain opt-in. Named kinds are
+  *added* to that default, so `--upload-artifacts=video` no longer turns screenshots off. The new
+  `--upload-artifacts=none` declines every kind, screenshots included.
+
+### Fixed
+
+- `attachment-reader.ts` said `maxTotalAttachmentBytes` "defaults to 750KB precisely to stay clear
+  of" `/collect`'s 10MB body limit. It has defaulted to 10MB since the caps were raised.
+- `docs/CONFIGURATION.md` listed only videos and traces as exempt from the attachment budget.
+  Screenshots are exempt now too.
+
 ## 0.3.2
 
 ### Added
