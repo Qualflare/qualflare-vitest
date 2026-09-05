@@ -250,3 +250,128 @@ describe('buildCase — version tolerance', () => {
     expect(built.attachments![0]!.name).toBe('shot');
   });
 });
+
+/**
+ * The counts below are not invented — they were measured against vitest 3.2.7
+ * by running a test that fails with a distinct message per attempt:
+ *
+ *   flaky (passes on the 3rd):  retryCount=2, errors=2
+ *   never passes (retry: 3):    retryCount=3, errors=4
+ *   never retried:              retryCount=0, errors=0
+ *   two expect.soft() x 3 runs: retryCount=2, errors=6   <- ambiguous
+ *
+ * If a future Vitest changes how `result.errors` accumulates, these are the
+ * assertions that should fail.
+ */
+describe('buildCase — per-attempt history', () => {
+  const build = (over: Parameters<typeof fakeTestCase>[0]) =>
+    buildCase(fakeTestCase(over), config(), new AttachmentBudget(0))!;
+
+  it('omits attempts entirely for a test that was never retried', () => {
+    const built = build({ state: 'passed', retryCount: 0 });
+    expect(built.attempts).toBeUndefined();
+  });
+
+  it('reconstructs a flaky run: earlier attempts failed, the final one passed', () => {
+    const built = build({
+      state: 'passed',
+      retryCount: 2,
+      flaky: true,
+      errors: [{ message: 'failure on attempt 1' }, { message: 'failure on attempt 2' }],
+    });
+    expect(built.attempts).toHaveLength(3);
+    expect(built.attempts!.map((a) => a.status)).toEqual(['failed', 'failed', 'passed']);
+    expect(built.attempts!.map((a) => a.attempt)).toEqual([1, 2, 3]);
+    expect(built.attempts![0]!.message).toBe('failure on attempt 1');
+    expect(built.attempts![1]!.message).toBe('failure on attempt 2');
+    // The final attempt passed, so it contributed no error and carries none.
+    expect(built.attempts![2]!.message).toBeUndefined();
+  });
+
+  it('reconstructs a run where every attempt failed', () => {
+    const built = build({
+      state: 'failed',
+      retryCount: 3,
+      errors: [{ message: 'A-1' }, { message: 'A-2' }, { message: 'A-3' }, { message: 'A-4' }],
+    });
+    expect(built.attempts).toHaveLength(4);
+    expect(built.attempts!.every((a) => a.status === 'failed')).toBe(true);
+    expect(built.attempts!.map((a) => a.message)).toEqual(['A-1', 'A-2', 'A-3', 'A-4']);
+  });
+
+  it('sends nothing rather than guessing when expect.soft() blurs the boundaries', () => {
+    // 3 executions x 2 soft failures. Nothing in the payload says which error
+    // belongs to which attempt, and 6 could equally be 3+2+1.
+    const built = build({
+      state: 'failed',
+      retryCount: 2,
+      errors: Array.from({ length: 6 }, (_, i) => ({ message: `soft-${i}` })),
+    });
+    expect(built.attempts).toBeUndefined();
+    // The Case still reports the retry aggregate and the combined error text,
+    // exactly as it did before per-attempt history existed.
+    expect(built.retryCount).toBe(2);
+    expect(built.error).toContain('soft-0');
+  });
+
+  it('puts the stack in trace, not message, since Vitest keeps them separate', () => {
+    const built = build({
+      state: 'failed',
+      retryCount: 1,
+      errors: [
+        { message: 'boom', stack: 'at foo (a.ts:1:1)' },
+        { message: 'boom again', stack: 'at bar (b.ts:2:2)' },
+      ],
+    });
+    expect(built.attempts![0]!.message).toBe('boom');
+    expect(built.attempts![0]!.trace).toBe('at foo (a.ts:1:1)');
+  });
+
+  it('folds a diff into the message, where the server expects it', () => {
+    const built = build({
+      state: 'failed',
+      retryCount: 1,
+      errors: [
+        { message: 'mismatch', diff: '- 1\n+ 2' },
+        { message: 'mismatch', diff: '- 1\n+ 2' },
+      ],
+    });
+    expect(built.attempts![0]!.message).toBe('mismatch\n\n- 1\n+ 2');
+  });
+
+  it('keeps the final attempt when trimming past the server cap', () => {
+    const n = 60;
+    const built = build({
+      state: 'failed',
+      retryCount: n - 1,
+      errors: Array.from({ length: n }, (_, i) => ({ message: `e-${i}` })),
+    });
+    expect(built.attempts).toHaveLength(50);
+    // First 49 plus the LAST one — a plain slice(0, 50) would drop the final
+    // attempt, which is the one carrying the outcome.
+    expect(built.attempts![48]!.message).toBe('e-48');
+    expect(built.attempts![49]!.message).toBe(`e-${n - 1}`);
+    expect(built.attempts![49]!.attempt).toBe(n);
+  });
+
+  it('truncates an oversized attempt message to the cap the server stores', () => {
+    const built = build({
+      state: 'failed',
+      retryCount: 1,
+      errors: [{ message: 'x'.repeat(20_000) }, { message: 'y' }],
+    });
+    expect(built.attempts![0]!.message).toHaveLength(8192);
+  });
+
+  it('never sets a per-attempt duration, which Vitest does not expose', () => {
+    const built = build({
+      state: 'passed',
+      retryCount: 1,
+      errors: [{ message: 'once' }],
+    });
+    // Filling these from the run-wide aggregate would claim each attempt took
+    // the whole time.
+    expect(built.attempts!.every((a) => a.duration === undefined)).toBe(true);
+    expect(built.attempts!.every((a) => a.startedAt === undefined)).toBe(true);
+  });
+});
