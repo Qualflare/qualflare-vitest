@@ -49,6 +49,14 @@ export default class QualflareReporter implements Reporter {
       const detectedShardIndex = shard ? shard.index - 1 : undefined;
 
       this.config = resolveConfig(this.options, { detectedShardIndex });
+      // Resolve outputDir ONCE, here, so every consumer sees the same absolute
+      // path. It used to be resolved only where the JSON is written, while the
+      // image writer in case-builder.ts took the raw config string -- which
+      // resolves against the CWD, not the Vitest root. With a config in a
+      // subdirectory and a relative outputDir, the report landed next to the
+      // root while every screenshot landed somewhere else, leaving
+      // localImagePath pointing at a file the CLI cannot find.
+      this.config.outputDir = this.resolveOutputDir(this.config.outputDir);
       this.budget = new AttachmentBudget(this.config.maxTotalAttachmentBytes);
     });
   }
@@ -114,7 +122,8 @@ export default class QualflareReporter implements Reporter {
       }
     }
 
-    const outputDir = this.resolveOutputDir(config.outputDir);
+    // Already absolute -- resolved once in onInit.
+    const outputDir = config.outputDir;
 
     fs.mkdirSync(outputDir, { recursive: true });
     const outputPath = path.join(outputDir, `${randomUUID()}.json`);
@@ -122,7 +131,12 @@ export default class QualflareReporter implements Reporter {
     logger.info(`wrote Collect payload to ${outputPath} — run \`qualflare-cli collect ${outputDir}\` to upload it.`);
   }
 
-  /** Relative `outputDir` resolves against the Vitest project root, not the
+  /** Called exactly once, from `onInit`, so `config.outputDir` is absolute
+   * everywhere downstream. Do not resolve again at a use site: a second
+   * resolution is what let the report and its artifacts land in different
+   * directories.
+   *
+   * Relative `outputDir` resolves against the Vitest project root, not the
    * shell's cwd — a user running `vitest` from a monorepo root should still
    * write next to their config. */
   private resolveOutputDir(outputDir: string): string {
