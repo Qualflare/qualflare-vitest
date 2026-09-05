@@ -40,9 +40,13 @@ export class AttachmentBudget {
  * Every path that inlines content must go through here. `/collect` rejects a
  * body over 10MB outright (api-service `launch_controller.go`'s
  * `BodyLimit(10<<20)`), and a rejected request loses the ENTIRE launch — not
- * just the oversized attachment. `maxTotalAttachmentBytes` defaults to 750KB
- * precisely to stay clear of that, so any path that skips the budget can
- * silently destroy a whole run's results.
+ * just the oversized attachment, so a path that skips the budget can silently
+ * destroy a whole run's results.
+ *
+ * The budget covers a smaller population than it used to. Screenshots no longer
+ * inline at all — they are written into `outputDir` and referenced by
+ * `localImagePath` (see `image-writer.ts`), so they are not in the request body
+ * and do not draw on this. What remains here is text: logs, JSON, markdown.
  */
 export function inlineFromBuffer(
   name: string,

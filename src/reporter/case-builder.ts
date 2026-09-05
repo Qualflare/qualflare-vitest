@@ -18,6 +18,7 @@ import { logger } from '../shared/logger.js';
 import type { Attachment, Attempt, Case, CaseStatus, Label, Link, Parameter, Step } from '../shared/types.js';
 import type { RuntimeMessage } from '../runtime/message-types.js';
 import { AttachmentBudget, inlineFromBuffer, inlineFromFile } from './attachment-reader.js';
+import { copyImageAttachment, isOffloadableImage, writeImageAttachment } from './image-writer.js';
 import { buildParameter, propertyValue } from '../shared/parameters.js';
 
 /**
@@ -174,19 +175,27 @@ function replayMetadata(
       case 'attachment': {
         // Decoded back to bytes rather than trusting the base64 length, so the
         // cap applies to the real payload size the server will receive.
-        const inlined = inlineFromBuffer(
-          message.name,
-          Buffer.from(message.contentBase64, 'base64'),
-          message.mimeType,
-          config,
-          budget,
-        );
+        const bytes = Buffer.from(message.contentBase64, 'base64');
+        // An image goes out of band; anything else keeps the inline path. Tried
+        // first so a screenshot never draws on the inline budget it no longer
+        // needs.
+        const asImage = imageFromBuffer(message.name, bytes, message.mimeType, config);
+        if (asImage) {
+          meta.attachments.push(asImage);
+          break;
+        }
+        const inlined = inlineFromBuffer(message.name, bytes, message.mimeType, config, budget);
         if (inlined) {
           meta.attachments.push(inlined);
         }
         break;
       }
       case 'attachment_from_file': {
+        const asImage = imageFromFile(message.name, message.path, config);
+        if (asImage) {
+          meta.attachments.push(asImage);
+          break;
+        }
         const fromFile = inlineFromFile(message.name, message.path, message.mimeType, config, budget);
         if (fromFile) {
           meta.attachments.push(fromFile);
@@ -252,6 +261,54 @@ function capTags(tags: string[]): string[] {
  * `@qualflare/playwright` needs for `TestCase.tags`, which exists only from
  * Playwright 1.42 despite that package's 1.40 floor.
  */
+/**
+ * Routes an on-disk image onto `localImagePath`, or returns undefined so the
+ * caller falls through to inlining exactly as before.
+ *
+ * Undefined is the ordinary outcome for a log or a JSON blob, and also for an
+ * image the writer could not place — so a bad `outputDir` costs the offload
+ * rather than the user's attachment.
+ */
+function imageFromFile(
+  name: string,
+  filePath: string,
+  config: ResolvedReporterConfig,
+): Attachment | undefined {
+  const copied = copyImageAttachment(filePath, config.outputDir, config.maxAttachmentBytes);
+  if (!copied) {
+    return undefined;
+  }
+  return {
+    name,
+    mimeType: copied.mimeType,
+    localImagePath: copied.localImagePath,
+    fileSize: copied.fileSize,
+  };
+}
+
+/** The in-memory counterpart of `imageFromFile` — the shape both of this
+ * reporter's image sources actually produce. */
+function imageFromBuffer(
+  name: string,
+  bytes: Buffer,
+  mimeType: string | undefined,
+  config: ResolvedReporterConfig,
+): Attachment | undefined {
+  if (!isOffloadableImage(mimeType)) {
+    return undefined;
+  }
+  const written = writeImageAttachment(bytes, mimeType, config.outputDir, config.maxAttachmentBytes);
+  if (!written) {
+    return undefined;
+  }
+  return {
+    name,
+    mimeType: written.mimeType,
+    localImagePath: written.localImagePath,
+    fileSize: written.fileSize,
+  };
+}
+
 function annotationsToAttachments(
   testCase: TestCase,
   config: ResolvedReporterConfig,
@@ -268,6 +325,11 @@ function annotationsToAttachments(
     }
     const name = annotation.message || annotation.type || 'annotation';
     if (file.path) {
+      const asImage = imageFromFile(name, file.path, config);
+      if (asImage) {
+        out.push(asImage);
+        continue;
+      }
       const fromFile = inlineFromFile(name, file.path, file.contentType, config, budget);
       if (fromFile) {
         out.push(fromFile);
@@ -278,6 +340,11 @@ function annotationsToAttachments(
       // A string body is base64 by default (bodyEncoding); a Uint8Array is
       // already raw bytes.
       const bytes = typeof file.body === 'string' ? Buffer.from(file.body, 'base64') : Buffer.from(file.body);
+      const asImage = imageFromBuffer(name, bytes, file.contentType, config);
+      if (asImage) {
+        out.push(asImage);
+        continue;
+      }
       const inlined = inlineFromBuffer(name, bytes, file.contentType, config, budget);
       if (inlined) {
         out.push(inlined);
