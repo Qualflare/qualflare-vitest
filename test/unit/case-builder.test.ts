@@ -209,7 +209,9 @@ describe('buildCase — attachments draw on the shared budget', () => {
       budget,
     )!;
     expect(built.attachments).toHaveLength(1);
-    expect(budget.usedBytes).toBe(5);
+    // "hello" is 5 raw bytes but 8 as base64 ("aGVsbG8="), and base64 is what the
+    // report carries, so 8 is what the budget is charged.
+    expect(budget.usedBytes).toBe(8);
   });
 
   it('skips an over-budget attachment rather than losing the whole launch', () => {
