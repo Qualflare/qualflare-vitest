@@ -5,6 +5,30 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.4.1
+
+### Fixed
+
+- **`maxTotalAttachmentBytes` is charged in encoded bytes, not raw.** An attachment contributes its
+  base64 to the report, which is 4/3 larger than the source, so the cap admitted a third more than it
+  said: a fully-spent 10,000,000-byte budget produced 13,333,336 bytes of content against
+  `/collect`'s 10,485,760-byte body limit. The configured number now means what it says. Set it from
+  the raw size you expect and it will no longer overshoot; a run that was quietly near the limit may
+  now warn and skip an attachment it previously included.
+  `maxAttachmentBytes` is unchanged and still measures the source file.
+
+- **A relative `outputDir` sent screenshots to a different directory than the report.** It was
+  resolved against the Vitest project root when writing the JSON report, but against the process CWD
+  when writing images. With a config whose root is a subdirectory, the report landed in one place and
+  every screenshot in another, so `localImagePath` — which is relative to the report — pointed at a
+  file that was not there. Nothing failed: the report was written and the path looked plausible.
+  `outputDir` is now resolved once, at init.
+
+### Changed
+
+- The npm `homepage` now points at the repository README rather than the Qualflare site root, so the
+  package page links somewhere with install and configuration instructions.
+
 ## 0.4.0
 
 ### Changed
