@@ -27,59 +27,6 @@ record at most 300 steps (`MAX_STEPS_PER_TEST_ATTEMPT`), well under the server's
 cap. Past that, further steps are dropped with a one-time warning rather than queued and truncated
 server-side, where the whole case could be rejected instead.
 
-## Steps exist only in Qualflare
-
-Vitest has no `test.step()` to delegate to, so a `qualflare.step()` appears in the Qualflare report
-and nowhere else — not in Vitest's terminal output, not in its HTML reporter. The Playwright sibling
-does delegate, so its steps appear in both. Timing is exact either way: real elapsed time around the
-awaited body.
-
-## Sharded CI: point every shard at the same `outputDir`
-
-Each process writes one uniquely-named file, so shards never overwrite one another and
-`qf collect <dir>` merges them into a single Launch.
-
-### A leftover report does not need clearing
-
-Each report carries `metadata.runId` — the identifier every shard of one run shares and different
-runs do not (`GITHUB_RUN_ID`, `CI_PIPELINE_ID`, and so on; a per-process UUID outside CI). When
-`collect` finds files from more than one run it uploads the run that just finished and says what it
-left out:
-
-```
-ignored 1 file(s) from 1 earlier run(s) (--allow-mixed-runs to include them)
-Processing 2 test result file(s)...
-OK Test results collected successfully
-```
-
-Nothing is deleted — the older files stay on disk, they are simply not uploaded.
-`--allow-mixed-runs` merges every run into one launch instead, which is occasionally what you want
-when several tools write into one directory.
-
-There was a period where this was stricter than it needed to be: `collect` refused the whole upload
-and left you to clear the directory by hand. Before that it merged the stale file silently, which
-produced a launch that looked entirely plausible and contained results nobody ran.
-
-**On `@qualflare/cli` older than v0.1.21 you get one of those two older behaviours** — a refusal on
-v0.1.19–v0.1.20, and a silent merge before that.
-
-## `parameter()` masking redacts the value
-
-`{ masked: true }` drops the value before the report is written. The secret never leaves this
-process, so it is not stored server-side and cannot be read back through the API.
-
-Inside a step, the parameter travels as `{ name, masked: true }` with no value, and the Qualflare UI
-renders `••••••` from the flag. Outside any step it lands in the case's `properties`, a flat
-`Record<string, string>` with nowhere to put the flag — so the value itself becomes `••••••`.
-Either way the report carries no secret.
-
-**The value is unrecoverable.** That is the point, but it is worth stating: masking is not a display
-toggle you can undo later. Mask a value you may need to read back and it is gone.
-
-This used to be a display hint only — the real value was sent, stored in plaintext and readable
-through the API, while the UI drew dots over it. Anyone who trusted the name got no protection at
-all, which is why the docs had to say "never put a real secret in one". They no longer do.
-
 ## Per-attempt history needs `@qualflare/cli` v0.1.23+
 
 `Case.attempts` is written into the report file by every reporter version that supports it, but
@@ -118,9 +65,8 @@ being stable across refactors.
 
 ## Not limitations of this reporter
 
-Things Vitest itself does not do. They are recorded here because people ask why a Vitest launch
-looks different from a Playwright or Cypress one — not because anything is being withheld. There is
-nothing to fix on this side; each would need a change in Vitest.
+Things Vitest itself does not do. They are recorded here so the absence is not mistaken for
+something being withheld — each would need a change in Vitest, not here.
 
 **No per-attempt timings, and no history at all when `expect.soft()` is used.** Per-attempt
 statuses and errors ARE sent as `Case.attempts`, like the other three reporters — but reconstructed
@@ -143,8 +89,7 @@ Two consequences, both from Vitest rather than from this reporter:
 
 **Four statuses, not seven.** Vitest has `passed`, `failed`, `skipped` and `pending`. A test that
 exceeds `testTimeout` surfaces as `failed` carrying a timeout message — Vitest does not distinguish
-it — so no `timeout` or `aborted` ever reaches a report. Playwright does distinguish them and its
-reporter maps them.
+it — so no `timeout` or `aborted` ever reaches a report.
 
 **No video, anywhere.** Vitest records none, in browser mode or otherwise.
 
