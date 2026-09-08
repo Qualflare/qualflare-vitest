@@ -1,6 +1,6 @@
 {
   "name": "@qualflare/vitest",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Native Vitest reporter for Qualflare — captures status, per-attempt retry history, flakiness, assertion diffs, nested steps and metadata.",
   "keywords": [
     "qualflare",
