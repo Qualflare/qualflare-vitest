@@ -1,17 +1,17 @@
 {
   "name": "@qualflare/vitest",
   "version": "0.4.1",
-  "description": "Native Vitest reporter for the Qualflare test-management platform.",
+  "description": "Native Vitest reporter for Qualflare — captures status, per-attempt retry history, flakiness, assertion diffs, nested steps and metadata.",
   "keywords": [
     "qualflare",
     "vitest",
     "vitest-reporter",
     "test-reporter",
+    "test-reporting",
     "test-results",
-    "flaky-tests",
-    "test-reporting"
+    "flaky-tests"
   ],
-  "homepage": "https://github.com/Qualflare/qualflare-vitest#readme",
+  "homepage": "https://qualflare.com/vitest-test-reporting/",
   "bugs": {
     "url": "https://github.com/Qualflare/qualflare-vitest/issues"
   },
