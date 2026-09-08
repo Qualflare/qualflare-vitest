@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.2
+
+Package metadata only — no code change, and nothing to do if you are already on
+0.4.1.
+
+`homepage` now points at https://qualflare.com/vitest-test-reporting/ instead of
+falling back to the GitHub README, `description` says what the reporter actually
+captures rather than naming the platform, and `keywords` matches the rest of the
+reporter family. The eight Qualflare reporters had drifted apart on all three,
+so a search that found one would miss the others.
+
 All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
